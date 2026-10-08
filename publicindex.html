@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yahoo! Messenger Web</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Tahoma', 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+    body { background-color: #ECE9D8; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    
+    /* Animation Shake BUZZ */
+    .shake { animation: shake 0.5s infinite; }
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      80% { transform: translate(1px, 2px) rotate(-1deg); }
+      100% { transform: translate(-1px, -2px) rotate(0deg); }
+    }
+
+    .window { width: 600px; height: 480px; background: #ECE9D8; border: 2px solid #0055EA; border-radius: 8px 8px 0 0; display: flex; flex-direction: column; box-shadow: 4px 4px 10px rgba(0,0,0,0.3); }
+    .title-bar { background: linear-gradient(to right, #0058EE, #3A93FF); color: white; padding: 6px 10px; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; border-radius: 6px 6px 0 0; }
+    .main-content { display: flex; flex: 1; overflow: hidden; padding: 5px; gap: 5px; }
+    
+    .sidebar { width: 150px; background: white; border: 1px solid #7F9DB9; padding: 5px; font-size: 12px; }
+    .sidebar h4 { background: #E3EFFF; padding: 3px; font-size: 11px; margin-bottom: 5px; color: #003399; }
+    .user-item { padding: 2px 5px; color: #008000; font-weight: bold; }
+
+    .chat-area { flex: 1; display: flex; flex-direction: column; }
+    .messages-box { flex: 1; background: white; border: 1px solid #7F9DB9; padding: 10px; overflow-y: auto; font-size: 12px; }
+    .msg { margin-bottom: 8px; }
+    .msg .sender { font-weight: bold; color: #000080; }
+    .msg .system { color: #808080; font-style: italic; }
+    .msg .buzz { color: red; font-weight: bold; font-size: 13px; }
+
+    .toolbar { height: 35px; display: flex; align-items: center; gap: 5px; padding: 5px 0; }
+    .buzz-btn { background: linear-gradient(to bottom, #FFE169, #FFB300); border: 1px solid #996600; padding: 3px 10px; font-weight: bold; cursor: pointer; border-radius: 3px; font-size: 11px; }
+    .buzz-btn:active { background: #FF9900; }
+
+    .input-area { display: flex; gap: 5px; height: 40px; }
+    .input-area input { flex: 1; border: 1px solid #7F9DB9; padding: 5px; font-size: 12px; }
+    .input-area button { background: #ECE9D8; border: 1px solid #7F9DB9; width: 60px; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body id="appBody">
+
+<div class="window" id="chatWindow">
+  <div class="title-bar">
+    <span>Yahoo! Messenger - Chat Room</span>
+    <span>X</span>
+  </div>
+  
+  <div class="main-content">
+    <div class="sidebar">
+      <h4>TEMAN ONLINE</h4>
+      <div id="userList"></div>
+    </div>
+
+    <div class="chat-area">
+      <div class="messages-box" id="msgBox"></div>
+      
+      <div class="toolbar">
+        <button class="buzz-btn" onclick="sendBuzz()">BUZZ!</button>
+      </div>
+
+      <div class="input-area">
+        <input type="text" id="msgInput" placeholder="Ketik pesan di sini..." onkeypress="if(event.key==='Enter') sendMsg()">
+        <button onclick="sendMsg()">Kirim</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const socket = io();
+  const username = prompt("Masukkan Username Yahoo kamu:") || "Guest_" + Math.floor(Math.random()*100);
+  
+  socket.emit('userJoined', { username: username });
+
+  function sendMsg() {
+    const input = document.getElementById('msgInput');
+    if (input.value.trim() !== '') {
+      socket.emit('sendMessage', { text: input.value });
+      input.value = '';
+    }
+  }
+
+  function sendBuzz() {
+    socket.emit('sendBuzz');
+  }
+
+  socket.on('receiveMessage', (data) => {
+    const box = document.getElementById('msgBox');
+    const div = document.createElement('div');
+    div.className = 'msg';
+    
+    if (data.sender === 'SYSTEM') {
+      div.innerHTML = `<span class="system">[${data.time}] ${data.text}</span>`;
+    } else {
+      div.innerHTML = `<span class="sender">${data.sender}</span> <small>(${data.time})</small>: ${data.text}`;
+    }
+    
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  });
+
+  socket.on('receiveBuzz', (data) => {
+    const box = document.getElementById('msgBox');
+    const div = document.createElement('div');
+    div.className = 'msg';
+    div.innerHTML = `<span class="buzz">*** ${data.sender} MENGIRIMKAN BUZZ! ***</span>`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+
+    // Getar Layar
+    const win = document.getElementById('chatWindow');
+    win.classList.add('shake');
+    setTimeout(() => win.classList.remove('shake'), 500);
+  });
+
+  socket.on('updateUserList', (users) => {
+    const list = document.getElementById('userList');
+    list.innerHTML = '';
+    users.forEach(u => {
+      const item = document.createElement('div');
+      item.className = 'user-item';
+      item.innerText = '• ' + u.username;
+      list.appendChild(item);
+    });
+  });
+</script>
+
+</body>
+</html>
